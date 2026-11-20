@@ -157,9 +157,10 @@ Then stop. Do not start milestone 1.
 ## After approval (a later session)
 
 1. Run `python3 <this-skill-dir>/scripts/check_design.py docs/features/<slug> --gate build`. It exits 0 only when line 1 says APPROVED and no `needs you` row is open. If it fails, stop and say which rows are open.
-2. Build milestones in order, one PR each, tests green before each PR. Touch only the files the milestone lists.
-3. Write any new decision you had to make into `DECISIONS.md`, routed with the risk rubric. If a new decision is `needs you`, stop and ask.
-4. Stop after the milestones the human asked for. Report what you built, the test command and its output, and anything you chose that the plan did not specify.
+2. Build milestones in order, one PR each, tests green before each PR. Touch only the files the milestone lists. Commit those files by name (never `git add -A` or `git add .`), and never commit caches or build output such as `__pycache__/`.
+3. Before you report, run `python3 <ops-agent-skill-dir>/scripts/risk_check.py --git main --max-lines 400`. A build milestone uses the 400-line PR guideline; the default of 50 is the ops agent's limit for a bug fix. Quote the result. HIGH means the PR waits for its code owner: say so, do not argue with it.
+4. Write any new decision you had to make into `DECISIONS.md`, routed with the risk rubric. If a new decision is `needs you`, stop and ask.
+5. Stop after the milestones the human asked for. Report what you built, the test command and its output, which acceptance examples the tests cover, and anything you chose that the plan did not specify.
 
 ## Reference files (read when the step says so)
 

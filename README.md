@@ -6,7 +6,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://code.claude.com/docs"><img alt="Built for Claude Code" src="https://img.shields.io/badge/built%20for-Claude%20Code-D97757.svg"></a>
   <a href="https://coderabbit.ai"><img alt="Reviewer: CodeRabbit" src="https://img.shields.io/badge/AI%20reviewer-CodeRabbit-FF570A.svg"></a>
-  <a href="examples/TEST-LOG.md"><img alt="Agent runs logged: 10" src="https://img.shields.io/badge/agent%20runs%20logged-10-2ea44f.svg"></a>
+  <a href="examples/TEST-LOG.md"><img alt="Agent runs logged: 12" src="https://img.shields.io/badge/agent%20runs%20logged-12-2ea44f.svg"></a>
 </p>
 
 <p align="center">
@@ -31,6 +31,8 @@ Everything here is Markdown and YAML you can read in ten minutes. Copy it into y
 | Design agent, "spend alerts for an AI gateway" | Wrote 4 docs and **stopped for a human on 9 of 14 decisions**. No app code before approval. | [docs](examples/design-agent-run/spend-alerts/) |
 | Design agent, "weekly email digest", then approval | **Stopped on 11 of 15 decisions.** After sign-off it built milestone 1 only, 44 tests passing. | [docs + code](examples/design-agent-run2/) |
 | Both skills rebuilt (v2: references, scripts, gates), fresh headless runs | Ops agent fixed the same bug with a quoted red-then-green test, 3 of 3 passing (**22 turns, 60 s, $0.22**), and surfaced one bug in `risk_check.py`, fixed the same day with a regression test. Design agent wrote 15 decisions (12 need you) and 15 acceptance examples, passed `check_design.py`, and **stopped at the gate** (**22 turns, 139 s, $0.42**). | [TEST-LOG](examples/TEST-LOG.md), [outputs](examples/skills-v2-smoke/) |
+| Design agent v2 after approval: we answered its 12 `needs you` rows as the PM and wrote the APPROVED line, then asked for milestone 1 only | Passed `check_design.py --gate build` first, built **only the 2 files M1 lists**, 9 tests pass (we re-ran them), PRD examples #3, #4 and #12 checked, `risk_check.py` LOW, **stopped before M2**. **18 turns, 35 s, $0.19.** The first run committed 2 cache files and used the wrong line limit; we fixed the skill and reran once (both runs logged). | [TEST-LOG](examples/TEST-LOG.md), [outputs](examples/skills-v2-build/) |
+| Live CodeRabbit review on a public sandbox | Sandbox open with branch protection and two PRs: the ops fix (LOW) and an auth fix (HIGH). Before any AI review, GitHub already split them: **auto-merge on for #1, `needs-human-review` label for #2.** The CodeRabbit review is pending its app install. | [sandbox](https://github.com/aakashg/ship-kit-demo), [PR #1](https://github.com/aakashg/ship-kit-demo/pull/1), [PR #2](https://github.com/aakashg/ship-kit-demo/pull/2) |
 | Audit of the auto-merge workflow | Found 7 ways a risky PR could slip through (a rename out of `app/auth/`, `.claude/settings.json`, `CODEOWNERS` and more). **All fixed, 22 test cases pass.** | [HARDENING](examples/hardening/HARDENING.md) |
 
 The services were synthetic test services built to reproduce the bugs Shuhao described. The skills, rules and workflows are the ones in this repo.
@@ -157,7 +159,7 @@ The agent runs in our tests cost $0.16 to $0.56 each on Claude Sonnet ([logs](ex
 The skills are plain `SKILL.md` files. Claude Code loads them from `.claude/skills/`, and any agent that reads the Agent Skills format can use them.
 
 **How do I know the config is right?**
-`.coderabbit.yaml` validates against CodeRabbit's published schema with 0 errors, both workflows pass `actionlint`, and the risk step passes the 22-case bypass suite in [`examples/hardening/`](examples/hardening/). The skill scripts have their own unit tests (16 cases, standard library only), and one of them fails if `risk_check.py` and the auto-merge workflow ever disagree on the high-risk paths. Step 4 above is your live check on your own repo.
+`.coderabbit.yaml` validates against CodeRabbit's published schema with 0 errors, both workflows pass `actionlint`, and the risk step passes the 22-case bypass suite in [`examples/hardening/`](examples/hardening/). The skill scripts have their own unit tests (16 cases, standard library only), and one of them fails if `risk_check.py` and the auto-merge workflow ever disagree on the high-risk paths. Step 4 above is your live check on your own repo. Ours is the public sandbox [ship-kit-demo](https://github.com/aakashg/ship-kit-demo), and [`examples/live-review/check_pr.sh`](examples/live-review/check_pr.sh) records what the reviewer and GitHub did on each PR in one command.
 
 **Do I need an engineer?**
 For the afternoon of setup, yes. After that a PM runs the design agent and reviews the ops agent's tickets.

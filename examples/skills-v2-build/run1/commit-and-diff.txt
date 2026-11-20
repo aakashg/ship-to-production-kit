@@ -1,0 +1,128 @@
+dfade11 M1: UTC month period and reset math
+ app/quota/__pycache__/period.cpython-314.pyc       | Bin 0 -> 4258 bytes
+ app/quota/period.py                                |  51 ++++++++++++++++++
+ .../test_period.cpython-314-pytest-9.1.1.pyc       | Bin 0 -> 22467 bytes
+ tests/quota/test_period.py                         |  58 +++++++++++++++++++++
+ 4 files changed, 109 insertions(+)
+
+diff --git a/app/quota/period.py b/app/quota/period.py
+new file mode 100644
+index 0000000..68ab582
+--- /dev/null
++++ b/app/quota/period.py
+@@ -0,0 +1,51 @@
++"""UTC calendar-month period and reset math for API key quotas. Pure: no I/O, no clock reads."""
++from __future__ import annotations
++
++from dataclasses import dataclass
++from datetime import datetime, timezone
++
++
++@dataclass(frozen=True)
++class Period:
++    start: datetime  # inclusive, 00:00:00 UTC on the 1st
++    reset_at: datetime  # exclusive, start of the next month
++
++    @property
++    def key(self) -> str:
++        """Storage form, e.g. '202611' (DB column and Redis key)."""
++        return self.start.strftime("%Y%m")
++
++    @property
++    def label(self) -> str:
++        """API form, e.g. '2026-11'."""
++        return self.start.strftime("%Y-%m")
++
++
++def _to_utc(now: datetime) -> datetime:
++    if now.tzinfo is None or now.utcoffset() is None:
++        raise ValueError("now must be timezone-aware")
++    return now.astimezone(timezone.utc)
++
++
++def period_for(now: datetime) -> Period:
++    """The quota period containing `now`. Exactly 00:00:00 UTC on the 1st belongs to the new month."""
++    utc = _to_utc(now)
++    start = datetime(utc.year, utc.month, 1, tzinfo=timezone.utc)
++    if utc.month == 12:
++        reset = datetime(utc.year + 1, 1, 1, tzinfo=timezone.utc)
++    else:
++        reset = datetime(utc.year, utc.month + 1, 1, tzinfo=timezone.utc)
++    return Period(start=start, reset_at=reset)
++
++
++def seconds_until_reset(now: datetime) -> int:
++    """Whole seconds until reset, rounded up, always >= 1 (usable as Retry-After)."""
++    utc = _to_utc(now)
++    delta = period_for(utc).reset_at - utc
++    secs = -(-delta.total_seconds() // 1)  # ceil
++    return max(1, int(secs))
++
++
++def reset_iso(now: datetime) -> str:
++    """Reset time as ISO-8601 UTC with a Z suffix (DECISIONS #13)."""
++    return period_for(now).reset_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+diff --git a/tests/quota/test_period.py b/tests/quota/test_period.py
+new file mode 100644
+index 0000000..40fab09
+--- /dev/null
++++ b/tests/quota/test_period.py
+@@ -0,0 +1,58 @@
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++from app.quota.period import period_for, reset_iso, seconds_until_reset
++
++UTC = timezone.utc
++
++
++def dt(*a, tz=UTC):
++    return datetime(*a, tzinfo=tz)
++
++
++def test_mid_month_example_3():
++    now = dt(2026, 11, 20, 13, 5, 0)
++    assert reset_iso(now) == "2026-12-01T00:00:00Z"
++    assert seconds_until_reset(now) == 903300
++    p = period_for(now)
++    assert (p.key, p.label) == ("202611", "2026-11")
++
++
++def test_year_boundary_example_12():
++    now = dt(2026, 12, 31, 23, 59, 59)
++    assert reset_iso(now) == "2027-01-01T00:00:00Z"
++    assert seconds_until_reset(now) == 1
++    assert period_for(now).key == "202612"
++
++
++def test_february_non_leap_and_leap():
++    assert reset_iso(dt(2027, 2, 28, 12)) == "2027-03-01T00:00:00Z"
++    assert seconds_until_reset(dt(2027, 2, 28, 23, 59, 59)) == 1
++    assert reset_iso(dt(2028, 2, 28, 12)) == "2028-03-01T00:00:00Z"
++    assert reset_iso(dt(2028, 2, 29, 12)) == "2028-03-01T00:00:00Z"
++    assert seconds_until_reset(dt(2028, 2, 29, 0, 0, 0)) == 86400
++
++
++def test_exact_midnight_starts_new_period_example_4():
++    now = dt(2026, 12, 1, 0, 0, 0)
++    p = period_for(now)
++    assert p.key == "202612"
++    assert reset_iso(now) == "2027-01-01T00:00:00Z"
++    assert seconds_until_reset(now) == 31 * 86400
++    assert period_for(now - timedelta(seconds=1)).key == "202611"
++
++
++def test_non_utc_input_is_converted():
++    est = timezone(timedelta(hours=-5))
++    # 2026-11-30 22:00 EST == 2026-12-01 03:00 UTC -> December period
++    assert period_for(dt(2026, 11, 30, 22, tz=est)).key == "202612"
++
++
++def test_fractional_seconds_round_up_and_never_zero():
++    assert seconds_until_reset(datetime(2026, 12, 31, 23, 59, 59, 500000, tzinfo=UTC)) == 1
++
++
++def test_naive_datetime_rejected():
++    with pytest.raises(ValueError):
++        period_for(datetime(2026, 11, 20))

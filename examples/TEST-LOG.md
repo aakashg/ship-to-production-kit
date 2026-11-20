@@ -50,4 +50,39 @@ Fresh copies in a scratch folder, no web access, permissions limited to Read, Wr
 - We re-ran `check_design.py --repo .` ourselves: design gate PASS, 0 failed. `--gate build`: FAIL (still DRAFT, 12 open rows), which is the correct answer before a human approves.
 - Output: [`skills-v2-smoke/design/`](skills-v2-smoke/design/).
 
-Not run in this round: a design run with a human answering questions, a post-approval build run on the v2 skill, and a CodeRabbit review of a live PR with the new path instructions. `.coderabbit.yaml` was re-validated against the published schema: 0 errors (a deliberately broken copy gives 1 error).
+Not run in this round: a design run with a human answering questions while it runs. The post-approval build and the live CodeRabbit setup were run next; see the two sections below. `.coderabbit.yaml` was re-validated against the published schema: 0 errors (a deliberately broken copy gives 1 error).
+
+## Design agent v2 after approval: build milestone 1 only (2026-11-20)
+Input: the quotas design from the v2 smoke run above, unchanged, in a fresh copy of `template-repo/` (test command filled in as `python3 -m pytest -q`, the one edit the setup step asks an engineer to make). Same `claude -p --model sonnet --setting-sources project,local` setup, `--max-budget-usd 0.80`, permissions limited to Read, Write, Edit, Glob, Grep, Skill, TodoWrite, python, ls, cat, mkdir and local git (no push). Prompt, verbatim: "The plan in docs/features/api-key-monthly-quotas is approved. Use the design-agent skill and build milestone 1 (M1) only."
+
+**The approval step, done the way the skill says.** We acted as the PM and answered all 12 `needs you` rows, each with a reason, in [`DECISIONS-ANSWERED.md`](skills-v2-build/approved-docs/DECISIONS-ANSWERED.md). Each "Decided by" cell became `answered by test-pm: <choice>`, the PRD example labels were updated to match (example #13 now expects a 400), M0 was waived because decision 1 confirms the stack, and line 1 of `IMPL-PLAN.md` became `Status: APPROVED by test-pm 2026-11-20`. Before the run: `check_design.py --gate build` PASS (12 answered, 0 open) and the design gate still PASS. Before approval the same build gate had failed (DRAFT, 12 open rows).
+
+**Run 1 (skill as shipped).** 23 turns, 35 s (41 s wall), $0.24.
+- Ran the build gate first, built only the two M1 files (`app/quota/period.py`, `tests/quota/test_period.py`), committed once on a branch, nothing pushed, and stopped before M2 (it named M2 as HIGH, needing the migration owner).
+- Tests: 7 new plus the smoke test. We re-ran them: 8 passed. They check PRD examples #3 (Nov 20 13:05 UTC resets at 2026-12-01, 903,300 s), #4 (00:00:00 on the 1st starts a new period) and #12 (Dec 31 23:59:59, 1 s), plus February, leap day and non-UTC input.
+- Two problems. It ran `git add app/quota tests/quota`, which committed two `__pycache__` `.pyc` files. And it ran `risk_check.py --git main` with the default limit, got HIGH for "109 changed lines > 50", and told the PM to check the rule. The 50-line limit is the ops agent's limit for a bug fix. The auto-merge workflow only judges paths, so the two gates disagreed on a small date-math milestone.
+
+**Fix, then run 2.** `design-agent/SKILL.md` "After approval" now tells the agent to commit the milestone's files by name and never caches, and to run `risk_check.py --git main --max-lines 400` (the 400-line PR guideline) and quote it. Its final report must also name the acceptance examples the tests cover. `template-repo/` gained a `.gitignore` (`__pycache__/`, `*.pyc`, `.pytest_cache/`, `.venv/`, `.env`). Fresh copy from the same approved commit.
+- 18 turns, 35 s (41 s wall), $0.19.
+- Gate first, then exactly two files, 94 lines, one commit on `build/quota-m1`, clean `git status`, nothing pushed.
+- Tests: 8 new plus the smoke test. We re-ran them: 9 passed. Same three PRD examples checked, plus February, leap day and fractional-second rounding.
+- `risk_check.py --git main --max-lines 400`: LOW, exit 0 (2 files, no high-risk path). We re-ran it: same.
+- Stopped after M1 and wrote no new decisions. It listed what it chose that the plan did not say: naive datetimes raise `ValueError`, and no `__init__.py` files because the plan listed only two files.
+- 3 Bash calls were refused by the permission sandbox (shell variables in the command); it rewrote them and carried on.
+
+Total for both runs: $0.43. Output: [`skills-v2-build/`](skills-v2-build/) (approved docs, prompt, each run's result JSON, commit and diff, our verification output; run 2 also has its full transcript with local paths replaced).
+
+## Live CodeRabbit review: sandbox ready, review pending the app install (2026-11-20)
+Sandbox: public repo [aakashg/ship-kit-demo](https://github.com/aakashg/ship-kit-demo), built from `template-repo/` plus the toy gateway from the ops run, the kit's `.coderabbit.yaml`, CI and auto-merge workflow, and a `CODEOWNERS` that names one real owner. Branch protection on `main`: 1 approval, review from Code Owners, required checks `test` and `CodeRabbit`, auto-merge allowed.
+
+Two PRs:
+- [#1](https://github.com/aakashg/ship-kit-demo/pull/1), LOW: the ops agent's fix (`examples/ops-agent-run/fix.diff`, applied unchanged). `risk_check.py`: LOW, 17 lines. 5 tests pass.
+- [#2](https://github.com/aakashg/ship-kit-demo/pull/2), HIGH: an expired session on `/v1/me` now gets a 401 (it got a 500) through a new helper in `app/auth/session.py`. The two new tests fail on `main` (`assert 500 == 401`) and pass on the branch, 6 tests in all. `risk_check.py`: HIGH, high-risk path `app/auth/session.py`.
+
+What GitHub did before any AI review, from `check_pr.sh` ([`live-review/results-before-install.md`](live-review/results-before-install.md)):
+- #1: CI `test` pass, the workflow turned on auto-merge (squash, enabled by `github-actions`), state BLOCKED waiting for an approval and the `CodeRabbit` check.
+- #2: CI `test` pass, the workflow labeled it `needs-human-review` and left auto-merge off, state BLOCKED.
+
+One bug found by the first push: CI ran bare `pytest`, which does not put the repo root on the import path, so both test files failed to import `app`. The kit's `.github/workflows/ci.yml` now runs `python -m pytest -q`. The fix went to the sandbox's `main` as a direct owner push (an admin bypass of branch protection, used for setup; one more such push later changed only the sandbox README wording), and both PR branches were rebased onto the CI fix.
+
+Not run yet: the CodeRabbit review itself. The app is not installed on this account, and installing a third-party GitHub App is the account owner's call. After the install, `bash examples/live-review/check_pr.sh` records each PR's reviews, CodeRabbit comments, checks, labels and merge state in one command.

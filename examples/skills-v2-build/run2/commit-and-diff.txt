@@ -1,0 +1,111 @@
+c319c94 M1: UTC month period and reset math for API key quotas
+ app/quota/period.py        | 29 +++++++++++++++++++++
+ tests/quota/test_period.py | 65 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 94 insertions(+)
+
+diff --git a/app/quota/period.py b/app/quota/period.py
+new file mode 100644
+index 0000000..7f2f307
+--- /dev/null
++++ b/app/quota/period.py
+@@ -0,0 +1,29 @@
++"""UTC calendar-month period and reset math for API key quotas. Pure, no I/O."""
++from datetime import datetime, timezone
++from math import ceil
++
++
++def _utc(now: datetime) -> datetime:
++    if now.tzinfo is None:
++        raise ValueError("now must be timezone-aware")
++    return now.astimezone(timezone.utc)
++
++
++def period_for(now: datetime) -> str:
++    """Return the quota period as 'YYYYMM' (UTC)."""
++    n = _utc(now)
++    return f"{n.year:04d}{n.month:02d}"
++
++
++def reset_at(now: datetime) -> datetime:
++    """Return the first instant of the next UTC month, when the counter resets."""
++    n = _utc(now)
++    if n.month == 12:
++        return datetime(n.year + 1, 1, 1, tzinfo=timezone.utc)
++    return datetime(n.year, n.month + 1, 1, tzinfo=timezone.utc)
++
++
++def retry_after_seconds(now: datetime) -> int:
++    """Whole seconds until reset, rounded up, never less than 1."""
++    delta = (reset_at(now) - _utc(now)).total_seconds()
++    return max(1, ceil(delta))
+diff --git a/tests/quota/test_period.py b/tests/quota/test_period.py
+new file mode 100644
+index 0000000..0323f62
+--- /dev/null
++++ b/tests/quota/test_period.py
+@@ -0,0 +1,65 @@
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++from app.quota.period import period_for, reset_at, retry_after_seconds
++
++UTC = timezone.utc
++
++
++def dt(*a):
++    return datetime(*a, tzinfo=UTC)
++
++
++def test_mid_month_example_3():
++    now = dt(2026, 11, 20, 13, 5, 0)
++    assert period_for(now) == "202611"
++    assert reset_at(now) == dt(2026, 12, 1)
++    assert retry_after_seconds(now) == 903300
++
++
++def test_year_boundary_example_12():
++    now = dt(2026, 12, 31, 23, 59, 59)
++    assert period_for(now) == "202612"
++    assert reset_at(now) == dt(2027, 1, 1)
++    assert retry_after_seconds(now) == 1
++
++
++def test_exact_month_start_is_new_period_example_4():
++    now = dt(2026, 12, 1, 0, 0, 0)
++    assert period_for(now) == "202612"
++    assert reset_at(now) == dt(2027, 1, 1)
++    assert period_for(now - timedelta(seconds=1)) == "202611"
++
++
++def test_february_non_leap():
++    now = dt(2027, 2, 28, 12, 0, 0)
++    assert reset_at(now) == dt(2027, 3, 1)
++    assert retry_after_seconds(now) == 12 * 3600
++
++
++def test_february_leap_day():
++    now = dt(2028, 2, 29, 23, 0, 0)
++    assert period_for(now) == "202802"
++    assert reset_at(now) == dt(2028, 3, 1)
++    assert retry_after_seconds(now) == 3600
++    assert reset_at(dt(2028, 2, 28)) == dt(2028, 3, 1)
++
++
++def test_fractional_seconds_round_up():
++    now = dt(2026, 12, 31, 23, 59, 59) + timedelta(microseconds=500000)
++    assert retry_after_seconds(now) == 1
++
++
++def test_non_utc_input_is_converted():
++    # 2026-12-01T01:00+02:00 is still 2026-11-30T23:00Z
++    tz = timezone(timedelta(hours=2))
++    now = datetime(2026, 12, 1, 1, 0, 0, tzinfo=tz)
++    assert period_for(now) == "202611"
++    assert reset_at(now) == dt(2026, 12, 1)
++    assert retry_after_seconds(now) == 3600
++
++
++def test_naive_datetime_rejected():
++    with pytest.raises(ValueError):
++        period_for(datetime(2026, 11, 20))

@@ -1,0 +1,19 @@
+$ python3 -m pytest -q
+........                                                                 [100%]
+8 passed in 0.01s
+
+$ python3 .claude/skills/design-agent/scripts/check_design.py docs/features/api-key-monthly-quotas --gate build
+PASS  docs       all four docs present
+PASS  status     approved: 'Status: APPROVED by test-pm 2026-11-20'
+PASS  decisions  no open `needs you` rows (12 answered)
+
+build gate: PASS (0 failed, 0 warnings)
+exit=0
+
+$ python3 .claude/skills/ops-agent/scripts/risk_check.py --git main
+HIGH
+- 109 changed lines > 50
+exit=2
+
+$ git status --short
+?? tests/__pycache__/
