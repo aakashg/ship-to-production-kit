@@ -6,7 +6,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://code.claude.com/docs"><img alt="Built for Claude Code" src="https://img.shields.io/badge/built%20for-Claude%20Code-D97757.svg"></a>
   <a href="https://coderabbit.ai"><img alt="Reviewer: CodeRabbit" src="https://img.shields.io/badge/AI%20reviewer-CodeRabbit-FF570A.svg"></a>
-  <a href="examples/TEST-LOG.md"><img alt="Agent runs logged: 8" src="https://img.shields.io/badge/agent%20runs%20logged-8-2ea44f.svg"></a>
+  <a href="examples/TEST-LOG.md"><img alt="Agent runs logged: 10" src="https://img.shields.io/badge/agent%20runs%20logged-10-2ea44f.svg"></a>
 </p>
 
 <p align="center">
@@ -30,6 +30,7 @@ Everything here is Markdown and YAML you can read in ten minutes. Copy it into y
 | Ops agent on clean logs (normal 4xx noise, no 5xx) | Reported 0 issues. **Invented nothing:** no ticket, no branch, no code. | [HARDENING](examples/hardening/HARDENING.md) |
 | Design agent, "spend alerts for an AI gateway" | Wrote 4 docs and **stopped for a human on 9 of 14 decisions**. No app code before approval. | [docs](examples/design-agent-run/spend-alerts/) |
 | Design agent, "weekly email digest", then approval | **Stopped on 11 of 15 decisions.** After sign-off it built milestone 1 only, 44 tests passing. | [docs + code](examples/design-agent-run2/) |
+| Both skills rebuilt (v2: references, scripts, gates), fresh headless runs | Ops agent fixed the same bug with a quoted red-then-green test, 3 of 3 passing (**22 turns, 60 s, $0.22**), and surfaced one bug in `risk_check.py`, fixed the same day with a regression test. Design agent wrote 15 decisions (12 need you) and 15 acceptance examples, passed `check_design.py`, and **stopped at the gate** (**22 turns, 139 s, $0.42**). | [TEST-LOG](examples/TEST-LOG.md), [outputs](examples/skills-v2-smoke/) |
 | Audit of the auto-merge workflow | Found 7 ways a risky PR could slip through (a rename out of `app/auth/`, `.claude/settings.json`, `CODEOWNERS` and more). **All fixed, 22 test cases pass.** | [HARDENING](examples/hardening/HARDENING.md) |
 
 The services were synthetic test services built to reproduce the bugs Shuhao described. The skills, rules and workflows are the ones in this repo.
@@ -69,15 +70,43 @@ The full GitHub and CodeRabbit setup is below. It takes one engineer about an af
 
 ## What's inside
 
+Each skill follows the layout of the best public skill repos (Anthropic's `skills`, obra's `superpowers`): a short `SKILL.md` with the gates and the steps, `references/` the agent reads only when a step needs it, and `scripts/` for the work that should be counted, not guessed.
+
+```text
+design-agent/
+  SKILL.md                         Iron Law, 11-item checklist, steps, red-flag table, failure modes from real runs
+  references/prd-template.md       PRD skeleton, acceptance examples (weak vs strong), CPO check format
+  references/plan-templates.md     ENG-PLAN and IMPL-PLAN skeletons, a milestone that passes review
+  references/decision-log-template.md  DECISIONS.md rows, good vs weak, the answered-row convention
+  references/risk-rubric.md        four questions that route a decision to "agent" or "needs you", 12 places decisions hide
+  scripts/check_design.py          design gate and build gate checker (exit 0 or 1), with tests
+ops-agent/
+  SKILL.md                         Iron Law, 9-item checklist, steps, stop conditions, red-flag table, evidence table
+  references/triage-rubric.md      signal vs noise, six mismatch classes, severity and confidence tables
+  references/ticket-template.md    the ticket template and a filled example
+  references/rollout-playbook.md   1% to 100% stages, advance / hold / roll back thresholds, status-code-change math
+  scripts/log_summary.py           JSON-lines logs to per-endpoint rates, p50/p95/p99, error clusters, defect counts
+  scripts/risk_check.py            LOW/HIGH from the changed paths, same pattern as the auto-merge workflow, fails closed
+```
+
 | Path | What it is |
 |---|---|
-| [`design-agent/`](design-agent/SKILL.md) | Claude Code skill. Pushes back on the idea, then writes `PRD.md`, `ENG-PLAN.md`, `IMPL-PLAN.md` and `DECISIONS.md`. Refuses to write app code until a human approves. |
-| [`ops-agent/`](ops-agent/SKILL.md) | Claude Code skill. Reads logs, metrics, traces and alarms, writes tickets, fixes low-risk bugs with a test, stages a 1 percent rollout. Stops on anything high risk. |
-| [`.coderabbit.yaml`](.coderabbit.yaml) | The reviewer's constitution. Approves low-risk PRs on its own and withholds approval on auth, billing, migrations and infra. |
+| [`design-agent/`](design-agent/SKILL.md) | Claude Code skill. Pushes back on the idea, then writes `PRD.md`, `ENG-PLAN.md`, `IMPL-PLAN.md` and `DECISIONS.md`, checks them with `check_design.py`, and refuses to write app code until a human writes the APPROVED line. |
+| [`ops-agent/`](ops-agent/SKILL.md) | Claude Code skill. Summarizes logs with `log_summary.py`, triages with a rubric, writes one ticket per root cause, gates every edit with `risk_check.py`, fixes low-risk bugs with a test that failed first, and writes a 1 percent rollout plan. Stops on anything high risk. |
+| [`.coderabbit.yaml`](.coderabbit.yaml) | The reviewer's constitution. Approves low-risk PRs on its own, withholds approval on auth, billing, migrations and infra, blocks a PR that approves a plan and builds it in one go, and warns when an ops fix has no rollout plan. A table at the top maps each gate to the file that enforces it. |
 | [`.github/`](.github/) | `CODEOWNERS`, CI, and `auto-merge-low-risk.yml`, which turns on GitHub auto-merge only when no high-risk path is touched and fails closed. |
-| [`template-repo/`](template-repo/) | The starter repo every project begins from: `.claude/rules/`, both skills, `infra/sandbox` and `infra/prod` stubs, smoke tests. |
-| [`examples/`](examples/) | Every test run: tickets, PRs, diffs, decision logs, the hardening suite. |
+| [`template-repo/`](template-repo/) | The starter repo every project begins from: `.claude/rules/`, both skills with their references and scripts, a `CLAUDE.md` with a gates table and stop conditions, `infra/sandbox` and `infra/prod` stubs, smoke tests. |
+| [`examples/`](examples/) | Every test run: tickets, PRs, diffs, decision logs, the hardening suite, and [`TEST-LOG.md`](examples/TEST-LOG.md) with what each script and skill run produced. |
 | [`NOTES.md`](NOTES.md) | Each piece mapped to the timestamp in the episode where Shuhao describes it. |
+
+Test the scripts yourself (standard library only, no install):
+
+```bash
+python3 -m unittest discover -s design-agent/scripts -p 'test_*.py'
+python3 -m unittest discover -s ops-agent/scripts -p 'test_*.py'
+python3 ops-agent/scripts/log_summary.py examples/ops-agent-run/toy-service/logs/app.jsonl --traces examples/ops-agent-run/toy-service/traces
+python3 design-agent/scripts/check_design.py examples/design-agent-run/spend-alerts
+```
 
 ## What I learned from the podcast
 
@@ -128,7 +157,7 @@ The agent runs in our tests cost $0.16 to $0.56 each on Claude Sonnet ([logs](ex
 The skills are plain `SKILL.md` files. Claude Code loads them from `.claude/skills/`, and any agent that reads the Agent Skills format can use them.
 
 **How do I know the config is right?**
-`.coderabbit.yaml` validates against CodeRabbit's published schema with 0 errors, both workflows pass `actionlint`, and the risk step passes the 22-case bypass suite in [`examples/hardening/`](examples/hardening/). Step 4 above is your live check on your own repo.
+`.coderabbit.yaml` validates against CodeRabbit's published schema with 0 errors, both workflows pass `actionlint`, and the risk step passes the 22-case bypass suite in [`examples/hardening/`](examples/hardening/). The skill scripts have their own unit tests (16 cases, standard library only), and one of them fails if `risk_check.py` and the auto-merge workflow ever disagree on the high-risk paths. Step 4 above is your live check on your own repo.
 
 **Do I need an engineer?**
 For the afternoon of setup, yes. After that a PM runs the design agent and reviews the ops agent's tickets.

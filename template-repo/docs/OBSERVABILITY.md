@@ -7,6 +7,7 @@ This is the file the ops agent reads first. Fill every TODO. Keep it factual.
 - Traces: TODO (backend, how to open a trace by trace_id)
 - Alarms: TODO (channel, which alarms exist, what each means)
 - Access: TODO (read-only VPN or API token, where the agent gets it; NEVER write access)
+- Log export for the summarizer: TODO (if logs can be pulled as JSON lines, the path or command; list any field names that differ from the ones above so the agent passes `--field-*` to `log_summary.py`)
 
 ## Services and owners
 | Service | Owner team | CODEOWNERS handle | On-call |

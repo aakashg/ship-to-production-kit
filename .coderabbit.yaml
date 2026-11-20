@@ -7,6 +7,17 @@
 # What CodeRabbit does by itself: reviews, requests changes, approves, withholds approval for risky paths.
 # What it does NOT do: merge (use GitHub auto-merge / branch protection, see .github/workflows) and
 # force a specific human to review (use .github/CODEOWNERS + "Require review from Code Owners").
+#
+# Where each gate lives (keep these in sync when you change a risk path):
+#   Gate                               Enforced by
+#   High-risk paths need a human        auto_approvals.overrides below + CODEOWNERS + the HIGH= pattern in
+#                                       .github/workflows/auto-merge-low-risk.yml + ops-agent/scripts/risk_check.py
+#   No code before an approved plan     design-agent SKILL.md Iron Law + design-agent/scripts/check_design.py
+#                                       + the "Build follows an approved plan" check below
+#   Bug fixes carry a failing-first test  ops-agent SKILL.md Step 4 + the "Bug fixes have a test" check below
+#   Partial rollout, even when critical ops-agent/references/rollout-playbook.md + the "Ops fix has a rollout plan" check
+#
+# Validate after every edit: the file must pass CodeRabbit's schema (https://coderabbit.ai/integrations/schema.v2.json).
 
 language: en-US
 tone_instructions: "Direct and brief. Say what is wrong, why it matters, and the fix. No praise filler, no nitpicks."
@@ -103,6 +114,19 @@ reviews:
       instructions: "HIGH RISK. Check money math, idempotency, rounding, and refunds. A human must approve."
     - path: "{.github/**,.claude/**,CLAUDE.md,CODEOWNERS,.coderabbit.yaml}"
       instructions: "HIGH RISK. These files control review, merge and agent rules. Flag any weakening of a risk path or a rule. A human must approve."
+    - path: "docs/features/**"
+      instructions: |
+        Design docs from the design-agent skill. Line 1 of IMPL-PLAN.md is a human gate.
+        Block if a PR changes that line from `Status: DRAFT - awaiting human approval` to `Status: APPROVED by ...`
+        and the same PR also adds or changes files under app/, infra/ or tests/: approval and build go in separate PRs.
+        Block if a DECISIONS.md row moves from `needs you` to `agent` without a reason in the row.
+        Comment if PRD.md has fewer than 10 acceptance examples or no `## CPO check` section.
+        Do not block on prose style.
+    - path: "**/skills/**/scripts/**"
+      instructions: |
+        Agent helper scripts. They must stay read-only (no network calls, no writes outside stdout), use only the
+        standard library, keep a --help, and ship with a test. Block if a change makes a risk check fail open
+        (an empty list, an exception or a parse error must still mean HIGH).
     - path: "docs/**"
       instructions: "LOW RISK. Check accuracy and broken links only. Do not block on style."
 
@@ -123,6 +147,18 @@ reviews:
         instructions: |
           If the PR is described as a bug fix, it must add or change a test in tests/ that would have failed before the fix.
           Fail otherwise. Pass for PRs that are not bug fixes.
+      - name: "Build follows an approved plan"
+        mode: warning
+        instructions: |
+          If the PR adds or changes files under app/ and names a feature that has a folder in docs/features/<slug>/,
+          line 1 of that folder's IMPL-PLAN.md on the base branch must start with `Status: APPROVED by`.
+          Fail if it still reads `Status: DRAFT`. Pass when no feature folder applies.
+      - name: "Ops fix has a rollout plan"
+        mode: warning
+        instructions: |
+          If the PR branch starts with `ops/` or the description links an ops ticket, the description must state a
+          partial rollout (1 percent first), the metric to watch, and the rollback trigger. Fail if any is missing.
+          Pass for other PRs.
 
 # Our conventions: tell the reviewer to read the same rules the coding agent reads.
 knowledge_base:

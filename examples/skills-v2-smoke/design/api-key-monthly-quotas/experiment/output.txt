@@ -1,0 +1,7 @@
+now=2026-11-20T13:05:00+00:00 reset=2026-12-01T00:00:00+00:00 retry_after_s=903300
+now=2026-12-31T23:59:59+00:00 reset=2027-01-01T00:00:00+00:00 retry_after_s=1
+now=2026-02-28T23:59:59+00:00 reset=2026-03-01T00:00:00+00:00 retry_after_s=1
+now=2028-02-29T12:00:00+00:00 reset=2028-03-01T00:00:00+00:00 retry_after_s=43200
+now=2026-12-01T00:00:00+00:00 reset=2027-01-01T00:00:00+00:00 retry_after_s=2678400
+assumed peak 2000 req/s; hottest key 400 incr/s
+a per-request SQL row update on one hot key serializes on a row lock; use atomic INCR, flush in batches
