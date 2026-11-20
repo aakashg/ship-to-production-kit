@@ -79,6 +79,17 @@ The full GitHub and CodeRabbit setup is below. It takes one engineer about an af
 | [`examples/`](examples/) | Every test run: tickets, PRs, diffs, decision logs, the hardening suite. |
 | [`NOTES.md`](NOTES.md) | Each piece mapped to the timestamp in the episode where Shuhao describes it. |
 
+## What I learned from the podcast
+
+Shuhao's system is the spine of this kit. Four more Growth Podcast guests each taught me one practice for shipping with agents, and each one is now a step in the kit. These steps were added on Nov 20, 2026, after the test runs in the proof table above.
+
+| Guest | The lesson, in their words | Where it lives in the kit |
+|---|---|---|
+| [Ryan Lopopolo](https://www.news.aakashg.com/p/ryan-lapopolo-podcast), Member of Technical Staff, OpenAI | When the agent gets something wrong, change the repo so it cannot make that mistake again. "Every time the agent made a mistake, the engineers were forcing the agent to learn how to self-correct, which means we basically did not have slop in the codebase." (17:36) | [`ops-agent/SKILL.md`](ops-agent/SKILL.md) Step 4b, rule 6 in [`template-repo/CLAUDE.md`](template-repo/CLAUDE.md), the bug-fix guard check in [`.coderabbit.yaml`](.coderabbit.yaml) |
+| [Aparna Dhinakaran](https://www.news.aakashg.com/p/aparna-dhinakaran-podcast), Founder and CPO, Arize | An eval the model wrote is a draft until it agrees with human labels. "My take is that vibe evals are going to fall short very very quickly." (43:29) | Acceptance examples and the eval check in [`design-agent/SKILL.md`](design-agent/SKILL.md) Step 4 |
+| [Tyler Folkman](https://www.news.aakashg.com/p/how-to-build-product-loops-in-claude-code), Chief AI and Product Officer, JobNimbus | Count the bugs customers feel, not only the rate. "If you ship twice as fast with AI and your quality rate maintains the same rate, your customer experiences twice as many bugs." | Defect count in [`ops-agent/SKILL.md`](ops-agent/SKILL.md) Step 1, baseline in [`template-repo/docs/OBSERVABILITY.md`](template-repo/docs/OBSERVABILITY.md) |
+| [Srini Raghavan](https://www.news.aakashg.com/p/srini-raghavan-podcast), CPO, Freshworks (at recording) | Have an agent review the spec the way the CPO would, before anyone builds. "I call this the CPO check, which is an AI agent that reviews the document for strategic alignment, clarity and what are the edge cases." (8:40) | The CPO check in [`design-agent/SKILL.md`](design-agent/SKILL.md) Step 5b |
+
 ## How it works
 
 ```text

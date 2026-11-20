@@ -82,6 +82,8 @@ reviews:
         Comment, do not block: naming, small refactors, comments and docs, lint-level style.
         Ignore: personal taste, import order, formatting that the formatter handles.
         Do not repeat a point already raised in this PR. Prefer one clear fix over a list of options.
+        If the PR fixes a bug, check that it also adds the guard that stops the bug coming back (a test, and a lint
+        or a rule line when a test alone would not catch it). Comment if the guard is missing.
     - path: "app/**"
       instructions: |
         Follow the standards in CLAUDE.md and .claude/rules/10-code-standards.md.

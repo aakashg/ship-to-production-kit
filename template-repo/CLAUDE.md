@@ -15,6 +15,7 @@ One paragraph: what this service does and who uses it.
 3. Open a PR. The AI reviewer (CodeRabbit, see `.coderabbit.yaml`) reviews. Fix what it blocks on, then wait for approval.
 4. Low-risk PRs merge automatically when approved. Anything under a path in `.github/CODEOWNERS` needs that team's human review.
 5. Production watch is the `ops-agent` skill.
+6. When an agent gets something wrong, fix the repo, not only the output: add the test, lint or rule line that stops it happening again, in the same PR or the next one.
 
 ## Commands
 - Run tests: `<fill in, e.g. pytest -q>`

@@ -18,3 +18,4 @@ This is the file the ops agent reads first. Fill every TODO. Keep it factual.
 - Partial rollout: TODO (feature flag or traffic split; how to set 1%)
 - Rollback thresholds: error rate +0.5 points over control, or p95 latency +20%. Adjust to your traffic.
 - Rollback command: TODO
+- Defect count baseline: TODO (customer-visible defects per week last month; the ops agent reports the count against this, not only the error rate)

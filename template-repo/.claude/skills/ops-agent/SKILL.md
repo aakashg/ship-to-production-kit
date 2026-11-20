@@ -18,6 +18,7 @@ Scan the last interval (default 24 hours) in this order:
 2. Error rate by endpoint and by status code. Treat any 5xx as suspect.
 3. Latency outliers (p95, p99).
 4. For each suspect cluster, pull 2 or 3 example traces and the matching log lines (match on request id or trace id).
+5. Count what customers felt, in absolute numbers: distinct customer-visible defects (one per root cause) and the requests each one hit. Compare to the previous interval. A flat error rate with more total errors is a finding, because shipping faster at the same quality rate means customers see more bugs.
 
 Look for mismatches, not just errors. Example class: the server returns 5xx for something the client caused (bad input, too many tokens, missing field). That should be a 4xx. A 5xx hides client bugs, pages the wrong people and inflates error budgets.
 
@@ -62,6 +63,9 @@ HIGH (you write the ticket and a proposed fix in the ticket, but you do NOT chan
 5. Add one line to the ticket: fix summary and the test name.
 6. Write the PR description in `PR.md`: what, why, ticket link, test evidence, rollback instruction.
 
+## Step 4b. Teach the repo
+A fix is not done until the repo would stop the same mistake next time. Ask what would have caught this bug before it merged, or stopped the agent that wrote it. The regression test from Step 4 is the first guard. If a lint rule or a one-line rule in `.claude/rules/` would also have caught it, write that line under `## Rule to add` in `PR.md`. Rules files are high risk, so a human adds it: never edit `.claude/rules/` yourself. (From Ryan Lopopolo's episode, see the README.)
+
 ## Step 5. Rollout rule
 Even for a critical fix, roll out partially. Write the plan in the ticket:
 1. Merge after AI review approves (low risk only). CI deploys to staging.
@@ -82,4 +86,4 @@ Stop and hand back to a human, with a note in the ticket, when any of these is t
 - Any step needs network access, credentials or a push that you do not have. Do not work around it.
 
 ## Final report
-End with five lines: issues found, tickets written, fixes made, tests run (pass/fail), what needs a human.
+End with six lines: issues found, customer-visible defects this interval vs the previous one (counts), tickets written, fixes made, tests run (pass/fail), what needs a human.

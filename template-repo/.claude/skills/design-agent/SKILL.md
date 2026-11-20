@@ -30,10 +30,12 @@ Find what the best existing products do and what they are missing. Use web searc
 Propose the single cheapest experiment that would reveal the first red flag (a fake-door page, a 20-line script against real data, five customer calls, a spreadsheet). Give: what we run, what result kills the idea, how long it takes. If you can run it safely yourself (read-only, no network writes), run it and record the result.
 
 ### Step 4. Write the docs (all in the feature folder, `docs/features/<slug>/`)
-- `PRD.md`: problem, who, success metric with a number, non-goals, user stories, the experiment and its result, open risks. One to two pages.
+- `PRD.md`: problem, who, success metric with a number, non-goals, user stories, the experiment and its result, open risks, and **acceptance examples**: at least 10 real inputs with the output a human expects, each marked pass or fail by the PM. One to two pages plus the examples.
 - `ENG-PLAN.md`: architecture, data model, interfaces and APIs, which existing modules change, security and privacy notes, rollout and observability (what logs, metrics, alarms this feature adds), failure modes. Name every file path that will be touched.
 - `IMPL-PLAN.md`: ordered milestones. Each milestone: goal, files, tests that prove it, how a human can check it in staging, estimated agent hours. Start the file with `Status: DRAFT - awaiting human approval`.
 - `DECISIONS.md`: see below.
+
+If the feature calls an LLM, `ENG-PLAN.md` names the eval that gates it. Treat any eval you wrote yourself as a draft: before it gates a milestone, run it on the PM's acceptance examples and list every case where it disagrees with the human label. Fix the eval until it agrees, then plan a re-check against fresh production samples after launch, because an eval drifts as real data arrives. If no PM has labeled the examples yet, that is a `needs you` row. (From Aparna Dhinakaran's episode, see the README.)
 
 Docs are v1. Expect the human to push back and iterate to v2 or v3. When they do, update the docs and keep a short changelog at the bottom of each.
 
@@ -47,6 +49,15 @@ Rules for "Decided by":
 - `agent`: low risk and easy to reverse (naming, internal structure, library choice inside existing stack, log fields). State what you chose.
 - `needs you`: anything touching money, auth, user data, pricing, external promises, schema migrations, irreversible choices, or product tradeoffs a customer would notice.
 Put all `needs you` items at the top. Count them at the end: "N need you, M decided by the agent". If there are fewer than 10 decisions you have not looked hard enough. If more than 15, merge the small ones.
+
+### Step 5b. CPO check
+Before you stop, review your own docs the way the most senior product person in the company would, then fix what you find. Check each of these:
+- Strategic alignment: does the PRD tie the feature to a goal the company has stated, and does the success metric measure that goal?
+- Clarity: could an engineer who missed every conversation build milestone 1 from these docs without asking a question?
+- Edge cases: empty, huge, duplicate, concurrent and permission-denied inputs, plus what the user sees when a dependency is down.
+- Scope: do the non-goals say what we will not build in this version?
+
+Add a `## CPO check` section at the bottom of `PRD.md` with one line per check: `pass` or what you changed. (From Srini Raghavan's episode, see the README.)
 
 ### Step 6. Stop at the gate
 Finish with exactly this message to the human:
