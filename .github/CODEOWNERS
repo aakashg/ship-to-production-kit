@@ -1,0 +1,21 @@
+# Humans who must review high-risk paths. Replace the handles with your real GitHub teams.
+# In branch protection for `main`, turn on "Require review from Code Owners".
+# Later lines win. Everything not listed here is open to AI review plus auto-merge.
+
+/infra/                @your-org/platform
+/.github/              @your-org/platform
+/.claude/              @your-org/platform
+/CLAUDE.md             @your-org/platform
+/CODEOWNERS            @your-org/platform
+/docs/CODEOWNERS       @your-org/platform
+/.coderabbit.yaml      @your-org/platform
+**/migrations/         @your-org/data
+**/auth/               @your-org/security
+**/billing/            @your-org/payments
+**/payments/           @your-org/payments
+**/secrets/            @your-org/security
+**/authn/              @your-org/security
+**/authz/              @your-org/security
+*.tf                   @your-org/platform
+*.tfvars               @your-org/platform
+.env*                  @your-org/security

@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# REVIEW CONSTITUTION. Two halves, as Shuhao describes: (1) our conventions, (2) how strict to be.
+# Conventions live in .claude/rules/ and CLAUDE.md (read via knowledge_base.code_guidelines) plus path_instructions below.
+# Strictness lives in `profile`, `auto_approvals` and the risk overrides.
+#
+# What CodeRabbit does by itself: reviews, requests changes, approves, withholds approval for risky paths.
+# What it does NOT do: merge (use GitHub auto-merge / branch protection, see .github/workflows) and
+# force a specific human to review (use .github/CODEOWNERS + "Require review from Code Owners").
+
+language: en-US
+tone_instructions: "Direct and brief. Say what is wrong, why it matters, and the fix. No praise filler, no nitpicks."
+
+reviews:
+  # How strict. quiet = only important feedback, chill = balanced, assertive = more (nitpicky) feedback.
+  # Start on chill so the coding agent and reviewer do not burn tokens arguing about style.
+  profile: chill
+
+  # Automatic approvals: CodeRabbit requests changes for blocking findings and approves once they are resolved.
+  auto_approvals:
+    enabled: true
+    min_blocking_severity: major      # minor and nit findings are advice, they never block
+    max_merge_risk: low               # anything rated moderate or above waits for a human
+    allow_author_approval: false      # the coding agent cannot approve its own PR with "@coderabbitai approve"
+    overrides:
+      # High-risk paths: CodeRabbit never approves, a human must. Any matching file applies to the whole PR.
+      - enabled: false
+        paths:
+          - "infra/**"
+          - "**/migrations/**"
+          - "**/auth/**"
+          - "**/billing/**"
+          - "**/payments/**"
+          - ".github/**"
+          - ".claude/rules/**"
+          - ".coderabbit.yaml"
+
+  # What counts as risky, used to rate merge risk (max 3000 chars).
+  merge_risk_instructions: |
+    Low risk: docs, tests, UI copy and styling, small bug fixes confined to one module with a test, internal refactors with tests.
+    Moderate or higher: new endpoints or changed API contracts, logic without tests, changes spanning several services,
+    new dependencies, anything that changes error handling or retries.
+    High or critical: authentication and authorization, payments and billing, database schema or migrations,
+    infrastructure and Terraform, secrets, data deletion, anything that touches user data at scale.
+
+  request_changes_workflow: true       # legacy alias of auto_approvals.enabled, kept for older CodeRabbit installs
+  high_level_summary: true
+  review_status: true
+  commit_status: true                  # posts a "CodeRabbit" status; require it in branch protection so PRs cannot merge mid-review
+  collapse_walkthrough: true
+  poem: false
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  suggested_reviewers: true
+  auto_assign_reviewers: false         # CODEOWNERS does the assigning for high-risk paths
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true      # re-review every push, so the agent and reviewer can loop
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+
+  path_filters:
+    - "!**/package-lock.json"
+    - "!**/pnpm-lock.yaml"
+    - "!**/poetry.lock"
+    - "!**/*.min.js"
+    - "!dist/**"
+    - "!build/**"
+
+  # Conventions, by path. Replace the generic text with your own style guide links.
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Block on: security issues, secrets in code, data loss, breaking API changes, new logic without tests,
+        a client mistake returned as a 5xx.
+        Comment, do not block: naming, small refactors, comments and docs, lint-level style.
+        Ignore: personal taste, import order, formatting that the formatter handles.
+        Do not repeat a point already raised in this PR. Prefer one clear fix over a list of options.
+    - path: "app/**"
+      instructions: |
+        Follow the standards in CLAUDE.md and .claude/rules/10-code-standards.md.
+        Client errors must be 4xx with a clear message. Every behavior change needs a test in tests/.
+        Logs must be JSON with request_id and trace_id and must never include secrets.
+    - path: "tests/**"
+      instructions: "Tests must assert behavior, not implementation. Flag deleted, skipped or weakened tests as blocking."
+    - path: "infra/**"
+      instructions: |
+        HIGH RISK. Review every resource for blast radius, cost, public exposure and IAM scope.
+        Flag anything that touches prod networking, databases or secrets. A human must approve.
+    - path: "**/migrations/**"
+      instructions: "HIGH RISK. Check reversibility, locking on large tables, and data loss. A human must approve."
+    - path: "**/auth/**"
+      instructions: "HIGH RISK. Check authentication, authorization, session and token handling. A human must approve."
+    - path: "**/billing/**"
+      instructions: "HIGH RISK. Check money math, idempotency, rounding, and refunds. A human must approve."
+    - path: "{.github/**,.claude/**,CLAUDE.md,CODEOWNERS,.coderabbit.yaml}"
+      instructions: "HIGH RISK. These files control review, merge and agent rules. Flag any weakening of a risk path or a rule. A human must approve."
+    - path: "docs/**"
+      instructions: "LOW RISK. Check accuracy and broken links only. Do not block on style."
+
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: "Imperative mood, under 72 characters, says what changed."
+    description:
+      mode: warning
+    custom_checks:
+      - name: "Risk bucket stated"
+        mode: warning
+        instructions: |
+          The PR description must say whether the change is LOW or HIGH risk (see .claude/rules/20-risk-and-review.md)
+          and give a one-line reason. Fail if it is missing.
+      - name: "Bug fixes have a test"
+        mode: error
+        instructions: |
+          If the PR is described as a bug fix, it must add or change a test in tests/ that would have failed before the fix.
+          Fail otherwise. Pass for PRs that are not bug fixes.
+
+# Our conventions: tell the reviewer to read the same rules the coding agent reads.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - ".claude/rules/*.md"

@@ -1,0 +1,25 @@
+[
+ {
+  "name": "POST /v1/chat",
+  "start_ms": 0,
+  "duration_ms": 207,
+  "status": "ERROR",
+  "attributes": {
+   "http.status_code": 500
+  }
+ },
+ {
+  "name": "llm.complete",
+  "start_ms": 4,
+  "duration_ms": 201,
+  "status": "ERROR",
+  "attributes": {
+   "llm.max_tokens": 128,
+   "llm.prompt_tokens": 150,
+   "llm.finish_reason": "length",
+   "exception.type": "MaxTokensExceeded",
+   "exception.message": "completion hit max_tokens=128 (prompt_tokens=150)",
+   "exception.stacktrace": "app/main.py:chat -> app/llm.py:complete (raise MaxTokensExceeded)"
+  }
+ }
+]

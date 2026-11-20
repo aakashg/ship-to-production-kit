@@ -1,0 +1,41 @@
+diff --git a/app/main.py b/app/main.py
+index 8941461..1b1d136 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,8 +1,8 @@
+ import logging
+-from fastapi import FastAPI
++from fastapi import FastAPI, HTTPException
+ from pydantic import BaseModel
+ 
+-from app.llm import complete
++from app.llm import MaxTokensExceeded, complete
+ 
+ log = logging.getLogger("gateway")
+ app = FastAPI(title="toy-ai-gateway")
+@@ -20,5 +20,9 @@ def healthz():
+ 
+ @app.post("/v1/chat")
+ def chat(req: ChatRequest):
+-    result = complete(req.prompt, max_tokens=req.max_tokens)
++    try:
++        result = complete(req.prompt, max_tokens=req.max_tokens)
++    except MaxTokensExceeded as e:
++        # Caller's prompt/max_tokens combination is the problem: 4xx, not 5xx.
++        raise HTTPException(status_code=400, detail=str(e))
+     return {"text": result["text"], "usage": result["completion_tokens"]}
+diff --git a/tests/test_chat.py b/tests/test_chat.py
+index f5fc7bb..4a24e92 100644
+--- a/tests/test_chat.py
++++ b/tests/test_chat.py
+@@ -11,3 +11,10 @@ def test_healthz():
+ def test_chat_ok():
+     r = client.post("/v1/chat", json={"prompt": "hello", "max_tokens": 64})
+     assert r.status_code == 200
++
++
++def test_chat_prompt_longer_than_max_tokens_is_client_error():
++    # prompt ~200 tokens, caller allows only 128: client-caused, must be 4xx not 500
++    r = client.post("/v1/chat", json={"prompt": "x" * 800, "max_tokens": 128})
++    assert r.status_code == 400
++    assert "max_tokens" in r.json()["detail"]

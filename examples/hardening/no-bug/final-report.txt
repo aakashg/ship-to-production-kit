@@ -1,0 +1,26 @@
+Quick status: I've finished going through the logs and found no real issue to ticket, so I'm wrapping up with the final report.
+
+**What I checked**
+- `logs/alarms.jsonl` is empty, so no alarms fired.
+- `logs/app.jsonl` has 1,200 requests, all on `/v1/chat`: 1,124 returned 200 (93.7%), 40 returned 400, 30 returned 401 and 6 returned 429. **There are zero 5xx responses.**
+- Latency is healthy and flat across statuses. Overall p50 is 150 ms, p95 213 ms, p99 237 ms and max 291 ms, with no outliers.
+- The 4xx counts are steady across the window with no spikes. All 6 of the 429s are rate limiting of one client (`key_abc`), and all 40 of the 400s are "prompt missing".
+- The class of bug the skill warns about, a client-caused error returned as a 5xx, is already handled. `app/main.py` maps `MaxTokensExceeded` to 400, and `tests/test_chat.py` covers it. No log line shows that error, so there is nothing to fix.
+
+**Gaps in the data**
+- **Window:** the logs cover only 2026-11-19 14:00–15:00Z, about 1 hour, not 24. This is the same window I'd expect for any sampled export, so I can't say anything about the rest of the day.
+- **Traces:** `traces/` is empty, so I couldn't pull example traces. With no suspect cluster, none were needed.
+- **Code vs. logs:** the code doesn't produce 401s or 429s, and a missing prompt would normally return 422 from FastAPI, not the logged 400. Those responses probably come from an upstream layer such as a gateway or a log shipper. I couldn't verify that from this repo.
+
+I didn't write a `TICKET.md` or `PR.md`, create a branch or change code. Nothing had evidence behind it, and inventing a ticket would be noise.
+
+**Final report**
+1. Issues found: 0. There are no 5xx responses and no alarms, latency is normal, and the 4xx volume is steady.
+2. Tickets written: 0.
+3. Fixes made: 0, with no branch or PR.
+4. Tests run: `.venv/bin/python -m pytest -q` ran 3 tests, all passed (1 unrelated httpx deprecation warning).
+5. Needs a human:
+   - Confirm why the log export covers 1 hour instead of 24.
+   - Confirm why `traces/` is empty.
+   - Check that the 401, 429 and 400 "prompt missing" responses come from an upstream layer. If one comes from this service, the 400 vs. 422 mismatch is worth a look.
+   - Optionally, check whether `key_abc` is a client worth contacting about its rate limiting. The 30 invalid-key 401s are probably worth the same look.
